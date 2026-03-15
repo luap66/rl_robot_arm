@@ -1,0 +1,9 @@
+__pycache__
+assets
+logs
+models
+panda_assets
+renders
+venv
+checkpoints
+train.log

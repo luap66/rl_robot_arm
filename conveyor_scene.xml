@@ -1,0 +1,45 @@
+<?xml version="1.0" ?>
+<mujoco model="panda_conveyor_scene">
+    <compiler angle="radian" autolimits="true"/>
+    <option gravity="0 0 -9.81" integrator="implicitfast"/>
+
+    <!-- Franka Panda from MuJoCo Menagerie -->
+    <include file="/home/paulw/projects/rl_robot_arm/panda_local.xml"/>
+
+    <visual>
+        <global offwidth="1920" offheight="1080"/>
+        <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/>
+    </visual>
+
+    <asset>
+        <texture name="grid" type="2d" builtin="checker" width="512" height="512"/>
+        <material name="grid" texture="grid" texrepeat="1 1" texuniform="true"/>
+        <model name="conv_belt_asset" file="assets/conveyor_belt/models/conveyor.xml"/>
+    </asset>
+
+    <worldbody>
+        <!-- Ground -->
+        <geom name="ground" pos="0 0 0" size="5 5 0.5" type="plane" material="grid"/>
+
+        <!-- Lighting -->
+        <light pos="0 0 2" dir="0 0 -1" diffuse="0.8 0.8 0.8" directional="true"/>
+
+        <!-- Conveyor Belt from assets/conveyor_belt -->
+        <body name="conveyor_base" pos="0.7 -0.6 0.0">
+            <attach model="conv_belt_asset" body="conveyor" prefix="conv_"/>
+        </body>
+
+        <!-- Pickup cube for robot demo -->
+        <body name="pickup_cube" pos="0.35 0.15 0.05">
+            <joint name="pickup_cube_joint" type="free"/>
+            <geom type="box" size="0.025 0.025 0.025" rgba="0.2 0.6 0.9 1"/>
+        </body>
+
+    </worldbody>
+
+    <equality>
+        <!-- Grasp weld, enabled/disabled at runtime -->
+        <weld name="grasp_weld" body1="hand" body2="pickup_cube"
+              solref="0.002 1" solimp="0.9 0.95 0.001" active="false"/>
+    </equality>
+</mujoco>
