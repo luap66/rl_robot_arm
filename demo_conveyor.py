@@ -10,6 +10,7 @@ import mujoco
 import sys
 import threading
 import tkinter as tk
+import argparse
 from env_conveyor import PandaConveyorEnv
 from gym_env import PandaConveyorGym, ConveyorTaskConfig
 
@@ -258,14 +259,14 @@ def demo_gui_control():
     tk.Label(frame, text="Conveyor Speed").grid(row=7, column=0, sticky="w")
     conveyor_slider = tk.Scale(
         frame,
-        from_=-1.0,
-        to=1.0,
+        from_=0.0,
+        to=20.0,
         resolution=0.01,
         orient=tk.HORIZONTAL,
         length=300,
         command=set_conveyor,
     )
-    conveyor_slider.set(0.25)
+    conveyor_slider.set(conveyor_val)
     conveyor_slider.grid(row=7, column=1, padx=5, pady=6)
 
     btn_frame = tk.Frame(frame)
@@ -517,11 +518,17 @@ def demo_ik_pick():
 
 
 if __name__ == "__main__":
-    if "--manual-train" in sys.argv:
+    parser = argparse.ArgumentParser(description="Conveyor demos and manual control")
+    parser.add_argument("--manual-train", action="store_true", help="Manual control in PandaConveyorGym action space")
+    parser.add_argument("--manual", action="store_true", help="Manual control with base PandaConveyorEnv")
+    parser.add_argument("--ik", action="store_true", help="Run IK pick-and-place demo")
+    args = parser.parse_args()
+
+    if args.manual_train:
         demo_gui_control_training()
-    elif "--manual" in sys.argv:
+    elif args.manual:
         demo_gui_control()
-    elif "--ik" in sys.argv:
+    elif args.ik:
         demo_ik_pick()
     else:
         demo_reach_conveyor()

@@ -41,15 +41,19 @@ def main():
     config = ConveyorTaskConfig(
         action_mode="velocity",
         control_conveyor=args.control_conveyor,
-        conveyor_speed=3.0,
-        randomize_cube=False,
+        conveyor_speed=5.0,
+        randomize_cube=True,
         max_steps=500,
         render_every_n_episodes=args.render_every,
         gui_sleep_s=args.gui_sleep,
     )
 
     env = PandaConveyorGym(gui=args.gui, dt=0.01, config=config)
-    env = Monitor(env, filename=str(run_dir / "monitor.csv"))
+    env = Monitor(
+        env,
+        filename=str(run_dir / "monitor.csv"),
+        info_keywords=("is_success", "done_reason"),
+    )
 
     model = PPO(
         "MlpPolicy",

@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <mujoco model="panda_conveyor_scene">
     <compiler angle="radian" autolimits="true"/>
-    <option gravity="0 0 -9.81" integrator="implicitfast"/>
+    <option gravity="0 0 -9.81" integrator="implicitfast" timestep="0.01"/>
 
     <!-- Franka Panda from MuJoCo Menagerie -->
     <include file="/home/paulw/projects/rl_robot_arm/panda_local.xml"/>
@@ -31,8 +31,8 @@
 
         <!-- Pickup cube for robot demo -->
         <body name="pickup_cube" pos="0.35 0.15 0.05">
-            <joint name="pickup_cube_joint" type="free"/>
-            <geom type="box" size="0.025 0.025 0.025" rgba="0.2 0.6 0.9 1"/>
+            <joint name="pickup_cube_joint" type="free" damping="0.005"/>
+            <geom type="box" size="0.025 0.025 0.025" rgba="0.2 0.6 0.9 1" mass="0.2" friction="0.2 0.0002 0.000001"/>
         </body>
 
     </worldbody>

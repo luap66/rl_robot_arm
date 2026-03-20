@@ -581,7 +581,14 @@ class PandaConveyorGym(gym.Env):
             done_reason = "max_steps"
         step_reward = float(reward)
         self.episode_reward += step_reward
-        info = {"dist": float(dist), "reward_parts": reward_parts, "episode_reward": float(self.episode_reward)}
+        is_success = bool(terminated and done_reason == "success_on_belt_end")
+        info = {
+            "dist": float(dist),
+            "reward_parts": reward_parts,
+            "episode_reward": float(self.episode_reward),
+            "is_success": is_success,
+            "done_reason": done_reason,
+        }
         self.prev_is_grasped = self.is_grasped
         if self.cube_body_id >= 0:
             self.prev_cube_z = float(self.env.data.xpos[self.cube_body_id][2])

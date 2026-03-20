@@ -14,7 +14,7 @@ class PandaConveyorEnv:
     Franka Emika Panda robot arm environment with conveyor belt.
     """
     
-    def __init__(self, gui: bool = True, dt: float = 0.001):
+    def __init__(self, gui: bool = True, dt: float = 0.01):
         """
         Initialize the Panda + Conveyor environment.
         
