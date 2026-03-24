@@ -97,6 +97,10 @@ class PandaConveyorGym(gym.Env):
         self.milestone_grasped = False
         self.milestone_on_belt = False
         self.milestone_end = False
+        self.ep_reached_grasped = False
+        self.ep_reached_on_belt = False
+        self.ep_grasped_steps = 0
+        self.ep_on_belt_steps = 0
         self._refresh_ids()
 
         # Observation: joint pos (7) + joint vel (7)
@@ -277,6 +281,10 @@ class PandaConveyorGym(gym.Env):
         self.milestone_grasped = False
         self.milestone_on_belt = False
         self.milestone_end = False
+        self.ep_reached_grasped = False
+        self.ep_reached_on_belt = False
+        self.ep_grasped_steps = 0
+        self.ep_on_belt_steps = 0
 
         if self.cube_body_id >= 0:
             # Place cube on table near robot (fixed or randomized)
@@ -333,6 +341,13 @@ class PandaConveyorGym(gym.Env):
         else:
             dist = 0.0
         cube_on_belt_now = self._cube_on_belt()
+
+        if self.is_grasped:
+            self.ep_grasped_steps += 1
+            self.ep_reached_grasped = True
+        if cube_on_belt_now:
+            self.ep_on_belt_steps += 1
+            self.ep_reached_on_belt = True
 
         just_released_onto_belt = False
 
@@ -592,6 +607,12 @@ class PandaConveyorGym(gym.Env):
             "episode_reward": float(self.episode_reward),
             "is_success": is_success,
             "done_reason": done_reason,
+            "is_grasped": bool(self.is_grasped),
+            "on_belt": bool(cube_on_belt_now),
+            "reached_grasped": bool(self.ep_reached_grasped),
+            "reached_on_belt": bool(self.ep_reached_on_belt),
+            "grasped_ratio": float(self.ep_grasped_steps / max(self.step_count, 1)),
+            "on_belt_ratio": float(self.ep_on_belt_steps / max(self.step_count, 1)),
         }
         self.prev_is_grasped = self.is_grasped
         if self.cube_body_id >= 0:

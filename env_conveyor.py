@@ -26,6 +26,10 @@ def _apply_belt_forces(model, data, belt_geom_id: int, belt_speed_x: float) -> N
     _LAT_GAIN  = 100.0  # lateral damping gain [N/(m/s)]
     _YAW_GAIN  = 0.5    # yaw damping gain [N·m/(rad/s)]
 
+    # Belt axes in world frame (X = transport, Y = lateral drift).
+    belt_x = np.array([1.0, 0.0, 0.0])
+    belt_y = np.array([0.0, 1.0, 0.0])
+
     processed: set = set()
     for i in range(data.ncon):
         con = data.contact[i]
@@ -40,15 +44,14 @@ def _apply_belt_forces(model, data, belt_geom_id: int, belt_speed_x: float) -> N
             continue
         processed.add(body_id)
 
-        # World-space linear velocity of the body
-        xmat   = data.xmat[body_id].reshape(3, 3)
-        v_body = xmat @ data.cvel[body_id][3:6]
-        v_x    = float(v_body[0])
-        v_y    = float(v_body[1])
+        # cvel linear part is in world frame; project onto fixed belt axes.
+        v_world = data.cvel[body_id][3:6]
+        v_x    = float(np.dot(v_world, belt_x))
+        v_y    = float(np.dot(v_world, belt_y))
         omega_z = float(data.cvel[body_id][2])   # angular vel about world-Z
 
         # Normal force estimate: mass * g (conservative lower bound)
-        mass  = float(np.sum(model.body_mass[body_id]))
+        mass  = float(model.body_mass[body_id])
         F_cap = _BELT_MU * mass * 9.81
 
         F_x = float(np.clip(_BELT_GAIN * (belt_speed_x - v_x), -F_cap, F_cap))
