@@ -28,66 +28,44 @@
              Belt-Oberfläche liegt bei World-Z = 0.18.
              Würfelhalbgröße = 0.03 m  →  Mittelpunkt beim Aufliegen = 0.21 m. -->
 
-        <body name="cube0" pos="-0.10 -0.60 0.30">
+        <body name="cube0" pos="0.10 -0.58 0.40" euler="0 0 0.785">
             <joint name="j0" type="free" damping="0.003"/>
-            <geom type="box" size="0.03 0.03 0.03" rgba="1.0 0.2 0.2 1"
-                  condim="6" friction="1.5 0.5 0.1" mass="0.15"/>
+            <geom type="box" size="0.03 0.03 0.03" rgba="1.0 0.2 0.2 1"/>
         </body>
 
-        <body name="cube1" pos="0.10 -0.58 0.55">
-            <!-- 45° um Z gedreht -->
+        <body name="cube1" pos="0.30 -0.60 0.65" euler="0.785 0 0">
             <joint name="j1" type="free" damping="0.003"/>
-            <geom type="box" size="0.03 0.03 0.03" rgba="1.0 0.6 0.1 1"
-                  condim="6" friction="1.5 0.5 0.1" mass="0.15"
-                  quat="0.924 0 0 0.383"/>
+            <geom type="box" size="0.03 0.03 0.03" rgba="1.0 0.6 0.1 1"/>
         </body>
 
-        <body name="cube2" pos="0.30 -0.62 0.80">
-            <!-- 45° um X gedreht -->
+        <body name="cube2" pos="0.50 -0.62 0.90" euler="0 0.524 0">
             <joint name="j2" type="free" damping="0.003"/>
-            <geom type="box" size="0.03 0.03 0.03" rgba="0.9 0.9 0.1 1"
-                  condim="6" friction="1.5 0.5 0.1" mass="0.15"
-                  quat="0.924 0.383 0 0"/>
+            <geom type="box" size="0.03 0.03 0.03" rgba="0.9 0.9 0.1 1"/>
         </body>
 
-        <body name="cube3" pos="0.50 -0.60 1.05">
-            <!-- 30° um Y gedreht -->
+        <body name="cube3" pos="0.70 -0.58 1.15" euler="1.571 0 0">
             <joint name="j3" type="free" damping="0.003"/>
-            <geom type="box" size="0.03 0.03 0.03" rgba="0.2 0.9 0.2 1"
-                  condim="6" friction="1.5 0.5 0.1" mass="0.15"
-                  quat="0.966 0 0.259 0"/>
+            <geom type="box" size="0.03 0.03 0.03" rgba="0.2 0.9 0.2 1"/>
         </body>
 
-        <body name="cube4" pos="0.70 -0.57 1.30">
-            <!-- 90° um X (auf der Kante) -->
+        <body name="cube4" pos="0.90 -0.60 1.40" euler="0 1.047 0">
             <joint name="j4" type="free" damping="0.003"/>
-            <geom type="box" size="0.03 0.03 0.03" rgba="0.1 0.6 1.0 1"
-                  condim="6" friction="1.5 0.5 0.1" mass="0.15"
-                  quat="0.707 0.707 0 0"/>
+            <geom type="box" size="0.03 0.03 0.03" rgba="0.1 0.6 1.0 1"/>
         </body>
 
-        <body name="cube5" pos="0.90 -0.63 1.55">
-            <!-- 60° um Z gedreht -->
+        <body name="cube5" pos="1.10 -0.63 1.65" euler="0.785 0.785 0">
             <joint name="j5" type="free" damping="0.003"/>
-            <geom type="box" size="0.03 0.03 0.03" rgba="0.5 0.1 0.9 1"
-                  condim="6" friction="1.5 0.5 0.1" mass="0.15"
-                  quat="0.866 0 0 0.5"/>
+            <geom type="box" size="0.03 0.03 0.03" rgba="0.5 0.1 0.9 1"/>
         </body>
 
-        <body name="cube6" pos="1.10 -0.60 1.80">
-            <!-- diagonal 45° um (X+Z)-Achse -->
+        <body name="cube6" pos="1.30 -0.57 1.90" euler="0 0 1.047">
             <joint name="j6" type="free" damping="0.003"/>
-            <geom type="box" size="0.03 0.03 0.03" rgba="1.0 0.4 0.8 1"
-                  condim="6" friction="1.5 0.5 0.1" mass="0.15"
-                  quat="0.888 0.325 0 0.325"/>
+            <geom type="box" size="0.03 0.03 0.03" rgba="1.0 0.4 0.8 1"/>
         </body>
 
-        <body name="cube7" pos="1.30 -0.60 2.05">
-            <!-- 180° um Z (auf dem Kopf) -->
+        <body name="cube7" pos="0.50 -0.60 2.15" euler="0.524 1.047 0.785">
             <joint name="j7" type="free" damping="0.003"/>
-            <geom type="box" size="0.03 0.03 0.03" rgba="0.8 0.8 0.8 1"
-                  condim="6" friction="1.5 0.5 0.1" mass="0.15"
-                  quat="0 0 0 1"/>
+            <geom type="box" size="0.03 0.03 0.03" rgba="0.8 0.8 0.8 1"/>
         </body>
 
     </worldbody>

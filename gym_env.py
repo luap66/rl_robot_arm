@@ -51,11 +51,11 @@ class ConveyorTaskConfig:
     hold_over_belt_penalty: float = 0.02  # Reduziert
     release_success_reward: float = 0.5  # Geringerer Reward für Zwischenziel
     terminate_on_success: bool = True
-    to_belt_scale: float = 1.5
+    to_belt_scale: float = 20.0  # delta-basiert: Reward pro Meter Annäherung ans Band
     hand_to_belt_scale: float = 0.5
     on_belt_reward: float = 5.0
     on_belt_z_below_margin: float = 0.04
-    on_belt_z_above_margin: float = 0.08
+    on_belt_z_above_margin: float = 0.02
     release_cmd_threshold: float = 0.5
     release_cmd_reward: float = 0.0  # Entfernt (verursacht Verwirrung)
     release_cmd_penalty: float = 0.0  # Entfernt
@@ -72,8 +72,8 @@ class ConveyorTaskConfig:
     milestone_end_reward: float = 4.0  # Mehr Gewicht auf finalem Erfolg
     grasp_sustain_reward: float = 0.0  # Entfernt (verursacht kontinuierliche Streuung)
     push_without_grasp_penalty: float = 0.02  # Reduziert
-    lift_up_reward_scale: float = 3.0
-    lift_down_penalty_scale: float = 2.0
+    lift_up_reward_scale: float = 2.0
+    lift_down_penalty_scale: float = 2.0  # gleich wie lift_up → kein Oszillations-Farming
     lift_min_height_margin: float = 0.01
     lift_low_height_penalty: float = 0.02
     belt_progress_reward_scale: float = 8.0
@@ -93,6 +93,7 @@ class PandaConveyorGym(gym.Env):
         self.prev_is_grasped = False
         self.prev_cube_z = 0.0
         self.prev_cube_x = 0.0
+        self.prev_belt_xy_dist = 0.0
         self.in_track_on_belt = False
         self.milestone_grasped = False
         self.milestone_on_belt = False
@@ -275,9 +276,16 @@ class PandaConveyorGym(gym.Env):
         if self.cube_body_id >= 0:
             self.prev_cube_z = float(self.env.data.xpos[self.cube_body_id][2])
             self.prev_cube_x = float(self.env.data.xpos[self.cube_body_id][0])
+            if self.belt_geom_id >= 0:
+                _cube = self.env.data.xpos[self.cube_body_id]
+                _belt = self.env.data.geom_xpos[self.belt_geom_id]
+                self.prev_belt_xy_dist = float(np.linalg.norm((_cube - _belt)[:2]))
+            else:
+                self.prev_belt_xy_dist = 0.0
         else:
             self.prev_cube_z = 0.0
             self.prev_cube_x = 0.0
+            self.prev_belt_xy_dist = 0.0
         self.milestone_grasped = False
         self.milestone_on_belt = False
         self.milestone_end = False
@@ -345,14 +353,15 @@ class PandaConveyorGym(gym.Env):
         if self.is_grasped:
             self.ep_grasped_steps += 1
             self.ep_reached_grasped = True
-        if cube_on_belt_now:
+        if cube_on_belt_now and not self.is_grasped:
             self.ep_on_belt_steps += 1
             self.ep_reached_on_belt = True
 
         just_released_onto_belt = False
 
-        # Enter TRACK_ON_BELT once cube was released and is resting on the belt.
-        if not self.in_track_on_belt and self.prev_is_grasped and not self.is_grasped and cube_on_belt_now:
+        # Enter TRACK_ON_BELT once cube is resting on the belt (handles both
+        # immediate landing and deferred drops from height).
+        if not self.in_track_on_belt and cube_on_belt_now and not self.is_grasped:
             just_released_onto_belt = True
             self.in_track_on_belt = True
 
@@ -475,17 +484,19 @@ class PandaConveyorGym(gym.Env):
                     reward -= self.config.lift_low_height_penalty
                     reward_parts["lift"] -= self.config.lift_low_height_penalty
 
-            # Encourage moving cube toward belt center (only when grasped)
+            # Reward progress toward belt (delta-based, no farming).
             if self.is_grasped and self.belt_geom_id >= 0 and self.cube_body_id >= 0:
                 belt_pos = self.env.data.geom_xpos[self.belt_geom_id]
                 cube_pos = self.env.data.xpos[self.cube_body_id]
-                belt_xy_dist = np.linalg.norm((cube_pos - belt_pos)[:2])
-                shaped = self.config.to_belt_scale * (1.0 - np.tanh(3.0 * belt_xy_dist))
+                belt_xy_dist = float(np.linalg.norm((cube_pos - belt_pos)[:2]))
+                delta = self.prev_belt_xy_dist - belt_xy_dist  # positive = closer
+                shaped = self.config.to_belt_scale * delta
                 reward += shaped
                 reward_parts["to_belt"] += shaped
+                self.prev_belt_xy_dist = belt_xy_dist
 
             # Legacy per-step on_belt reward removed to avoid reward farming.
-        if not self.in_track_on_belt and self._cube_at_belt_end():
+        if not self.in_track_on_belt and not self.is_grasped and self._cube_at_belt_end():
             reward += self.config.belt_end_reward
             reward_parts["end"] += self.config.belt_end_reward
 
@@ -532,11 +543,11 @@ class PandaConveyorGym(gym.Env):
             reward_parts["milestone"] += self.config.milestone_grasp_reward
             self.milestone_grasped = True
         # Removed grasp_sustain_reward - causes signal noise
-        if (just_released_onto_belt or cube_on_belt_now) and not self.milestone_on_belt:
+        if (just_released_onto_belt or (cube_on_belt_now and not self.is_grasped)) and not self.milestone_on_belt:
             reward += self.config.milestone_on_belt_reward
             reward_parts["milestone"] += self.config.milestone_on_belt_reward
             self.milestone_on_belt = True
-        if not self.in_track_on_belt and self._cube_at_belt_end() and not self.milestone_end:
+        if not self.in_track_on_belt and not self.is_grasped and self._cube_at_belt_end() and not self.milestone_end:
             reward += self.config.milestone_end_reward
             reward_parts["milestone"] += self.config.milestone_end_reward
             self.milestone_end = True
@@ -618,6 +629,10 @@ class PandaConveyorGym(gym.Env):
         if self.cube_body_id >= 0:
             self.prev_cube_z = float(self.env.data.xpos[self.cube_body_id][2])
             self.prev_cube_x = float(self.env.data.xpos[self.cube_body_id][0])
+            if self.belt_geom_id >= 0 and not self.is_grasped:
+                _belt = self.env.data.geom_xpos[self.belt_geom_id]
+                _cube = self.env.data.xpos[self.cube_body_id]
+                self.prev_belt_xy_dist = float(np.linalg.norm((_cube - _belt)[:2]))
 
         # When GUI is on (e.g. render episodes during training), print reward breakdown every step.
         if self.env.gui:
