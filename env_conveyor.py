@@ -9,6 +9,61 @@ from pathlib import Path
 from typing import Tuple, Dict, Any, Optional
 
 
+def _apply_belt_forces(model, data, belt_geom_id: int, belt_speed_x: float) -> None:
+    """Apply belt friction forces via qfrc_applied to bodies touching the belt.
+
+    The belt surface uses condim=1 (normal support only, no tangential friction
+    from the contact model).  This function provides the full friction behaviour
+    programmatically so nothing fights the contact solver.
+
+    Physics per contact body:
+      X: velocity-error force drives body toward belt_speed_x, capped at mu*m*g.
+      Y: velocity-proportional force damps lateral drift, same cap.
+      Z-rot: damping torque prevents spin.
+    """
+    _BELT_MU   = 1.5    # combined sliding friction coefficient
+    _BELT_GAIN = 40.0   # proportional → steady-state, no oscillation
+    _LAT_GAIN  = 100.0  # lateral damping gain [N/(m/s)]
+    _YAW_GAIN  = 0.5    # yaw damping gain [N·m/(rad/s)]
+
+    processed: set = set()
+    for i in range(data.ncon):
+        con = data.contact[i]
+        if con.geom1 == belt_geom_id:
+            other_geom = con.geom2
+        elif con.geom2 == belt_geom_id:
+            other_geom = con.geom1
+        else:
+            continue
+        body_id = model.geom_bodyid[other_geom]
+        if body_id == 0 or body_id in processed:
+            continue
+        processed.add(body_id)
+
+        # World-space linear velocity of the body
+        xmat   = data.xmat[body_id].reshape(3, 3)
+        v_body = xmat @ data.cvel[body_id][3:6]
+        v_x    = float(v_body[0])
+        v_y    = float(v_body[1])
+        omega_z = float(data.cvel[body_id][2])   # angular vel about world-Z
+
+        # Normal force estimate: mass * g (conservative lower bound)
+        mass  = float(np.sum(model.body_mass[body_id]))
+        F_cap = _BELT_MU * mass * 9.81
+
+        F_x = float(np.clip(_BELT_GAIN * (belt_speed_x - v_x), -F_cap, F_cap))
+        F_y = float(np.clip(-_LAT_GAIN * v_y,                  -F_cap, F_cap))
+        T_z = float(np.clip(-_YAW_GAIN * omega_z,              -0.2,   0.2))
+
+        force  = np.array([F_x, F_y, 0.0])
+        torque = np.array([0.0, 0.0, T_z])
+        mj.mj_applyFT(
+            model, data, force, torque,
+            data.xpos[body_id].copy(), body_id,
+            data.qfrc_applied,
+        )
+
+
 class PandaConveyorEnv:
     """
     Franka Emika Panda robot arm environment with conveyor belt.
@@ -39,8 +94,6 @@ class PandaConveyorEnv:
         self.actuator_ids = []
         self.conveyor_geom_id = -1
         self.conveyor_speed_scale = 0.25
-        # Keep conveyor force conservative to avoid unstable launches.
-        self.conveyor_force = 3.0
         self.grasp_weld_id = -1
         self.cube_body_id = -1
         self.hand_body_id = -1
@@ -176,53 +229,21 @@ class PandaConveyorEnv:
                 self.data.ctrl[actuator_id] = action[i]
         # Gripper control removed
         
-        # Apply conveyor control (if exists)
-        conveyor_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_ACTUATOR, "conv_roller_vel")
-        if conveyor_id < 0:
-            conveyor_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_ACTUATOR, "conveyor_motion")
-        if conveyor_id >= 0:
-            self.data.ctrl[conveyor_id] = conveyor_speed
-
-        # Apply belt transport force to contacting bodies
-        if self.conveyor_geom_id >= 0 and self.data.ncon > 0 and conveyor_speed != 0.0:
-            self.data.qfrc_applied[:] = 0.0
-            belt_dir = np.array([1.0, 0.0, 0.0])
-            target_speed = conveyor_speed * self.conveyor_speed_scale
-            torque = np.zeros(3)
-            belt_z = float(self.data.geom_xpos[self.conveyor_geom_id][2])
-            processed_bodies = set()
-            for i in range(self.data.ncon):
-                con = self.data.contact[i]
-                if con.geom1 == self.conveyor_geom_id:
-                    other_geom = con.geom2
-                elif con.geom2 == self.conveyor_geom_id:
-                    other_geom = con.geom1
-                else:
-                    continue
-                body_id = self.model.geom_bodyid[other_geom]
-                if body_id == 0:
-                    continue
-                if body_id in processed_bodies:
-                    continue
-                processed_bodies.add(body_id)
-                # data.cvel is body-frame spatial velocity; convert linear part to world frame
-                v_body_local = self.data.cvel[body_id][3:6]
-                xmat = self.data.xmat[body_id].reshape(3, 3)
-                v_world = xmat @ v_body_local
-                v_along = float(np.dot(v_world, belt_dir))
-                # Only drive objects that are actually close to the belt surface.
-                body_z = float(self.data.xpos[body_id][2])
-                if body_z > belt_z + 0.08:
-                    continue
-                if v_along >= target_speed:
-                    continue
-                delta = target_speed - v_along
-                force_mag = self.conveyor_force * min(delta, 1.0)
-                force_vec = belt_dir * force_mag
-                point = con.pos
-                mj.mj_applyFT(self.model, self.data, force_vec, torque, point, body_id, self.data.qfrc_applied)
+        # Spin rollers for visual fidelity (radius 0.05 m → ω = v / r).
+        roller_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_ACTUATOR, "conv_roller_vel")
+        if roller_id >= 0:
+            self.data.ctrl[roller_id] = conveyor_speed * self.conveyor_speed_scale / 0.05
         
-        # Step simulation
+        # Apply belt friction forces before stepping.
+        # Belt surface has condim=1 (normal support only), so these forces
+        # are the sole source of tangential friction – no fighting the solver.
+        self.data.qfrc_applied[:] = 0.0
+        if conveyor_speed != 0.0 and self.conveyor_geom_id >= 0:
+            _apply_belt_forces(
+                self.model, self.data,
+                self.conveyor_geom_id,
+                conveyor_speed * self.conveyor_speed_scale,
+            )
         mj.mj_step(self.model, self.data)
 
         # Auto-grasp with latch: once grasped, hold until released externally.

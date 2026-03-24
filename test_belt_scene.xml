@@ -1,0 +1,94 @@
+<?xml version="1.0" ?>
+<mujoco model="belt_cube_test">
+    <compiler angle="radian" autolimits="true"/>
+    <option gravity="0 0 -9.81" integrator="implicitfast" timestep="0.005"/>
+
+    <visual>
+        <global offwidth="1920" offheight="1080"/>
+        <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/>
+    </visual>
+
+    <asset>
+        <texture name="grid" type="2d" builtin="checker" width="512" height="512"
+                 rgb1="0.3 0.3 0.3" rgb2="0.5 0.5 0.5"/>
+        <material name="grid" texture="grid" texrepeat="2 2" texuniform="true"/>
+        <model name="conv_belt_asset" file="assets/conveyor_belt/models/conveyor.xml"/>
+    </asset>
+
+    <worldbody>
+        <geom name="ground" pos="0 0 0" size="5 5 0.5" type="plane" material="grid"/>
+        <light pos="0.5 -0.6 3" dir="0 0 -1" diffuse="0.9 0.9 0.9" directional="true"/>
+        <light pos="-1 0 2" dir="0.3 0.3 -1" diffuse="0.4 0.4 0.4" directional="true"/>
+
+        <body name="conveyor_base" pos="0.7 -0.6 0.0">
+            <attach model="conv_belt_asset" body="conveyor" prefix="conv_"/>
+        </body>
+
+        <!-- 8 Würfel mit verschiedenen Startorientierungen und versetzten Fallhöhen.
+             Belt-Oberfläche liegt bei World-Z = 0.18.
+             Würfelhalbgröße = 0.03 m  →  Mittelpunkt beim Aufliegen = 0.21 m. -->
+
+        <body name="cube0" pos="-0.10 -0.60 0.30">
+            <joint name="j0" type="free" damping="0.003"/>
+            <geom type="box" size="0.03 0.03 0.03" rgba="1.0 0.2 0.2 1"
+                  condim="6" friction="1.5 0.5 0.1" mass="0.15"/>
+        </body>
+
+        <body name="cube1" pos="0.10 -0.58 0.55">
+            <!-- 45° um Z gedreht -->
+            <joint name="j1" type="free" damping="0.003"/>
+            <geom type="box" size="0.03 0.03 0.03" rgba="1.0 0.6 0.1 1"
+                  condim="6" friction="1.5 0.5 0.1" mass="0.15"
+                  quat="0.924 0 0 0.383"/>
+        </body>
+
+        <body name="cube2" pos="0.30 -0.62 0.80">
+            <!-- 45° um X gedreht -->
+            <joint name="j2" type="free" damping="0.003"/>
+            <geom type="box" size="0.03 0.03 0.03" rgba="0.9 0.9 0.1 1"
+                  condim="6" friction="1.5 0.5 0.1" mass="0.15"
+                  quat="0.924 0.383 0 0"/>
+        </body>
+
+        <body name="cube3" pos="0.50 -0.60 1.05">
+            <!-- 30° um Y gedreht -->
+            <joint name="j3" type="free" damping="0.003"/>
+            <geom type="box" size="0.03 0.03 0.03" rgba="0.2 0.9 0.2 1"
+                  condim="6" friction="1.5 0.5 0.1" mass="0.15"
+                  quat="0.966 0 0.259 0"/>
+        </body>
+
+        <body name="cube4" pos="0.70 -0.57 1.30">
+            <!-- 90° um X (auf der Kante) -->
+            <joint name="j4" type="free" damping="0.003"/>
+            <geom type="box" size="0.03 0.03 0.03" rgba="0.1 0.6 1.0 1"
+                  condim="6" friction="1.5 0.5 0.1" mass="0.15"
+                  quat="0.707 0.707 0 0"/>
+        </body>
+
+        <body name="cube5" pos="0.90 -0.63 1.55">
+            <!-- 60° um Z gedreht -->
+            <joint name="j5" type="free" damping="0.003"/>
+            <geom type="box" size="0.03 0.03 0.03" rgba="0.5 0.1 0.9 1"
+                  condim="6" friction="1.5 0.5 0.1" mass="0.15"
+                  quat="0.866 0 0 0.5"/>
+        </body>
+
+        <body name="cube6" pos="1.10 -0.60 1.80">
+            <!-- diagonal 45° um (X+Z)-Achse -->
+            <joint name="j6" type="free" damping="0.003"/>
+            <geom type="box" size="0.03 0.03 0.03" rgba="1.0 0.4 0.8 1"
+                  condim="6" friction="1.5 0.5 0.1" mass="0.15"
+                  quat="0.888 0.325 0 0.325"/>
+        </body>
+
+        <body name="cube7" pos="1.30 -0.60 2.05">
+            <!-- 180° um Z (auf dem Kopf) -->
+            <joint name="j7" type="free" damping="0.003"/>
+            <geom type="box" size="0.03 0.03 0.03" rgba="0.8 0.8 0.8 1"
+                  condim="6" friction="1.5 0.5 0.1" mass="0.15"
+                  quat="0 0 0 1"/>
+        </body>
+
+    </worldbody>
+</mujoco>

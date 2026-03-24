@@ -81,15 +81,6 @@ def demo_reach_conveyor():
             obs, reward, terminated, truncated, info = env.step(gym_action)
             cumulative_reward += float(reward)
 
-            # Visual marker at the cube position used in state + reward
-            if env.env.viewer is not None and cube_body_id >= 0:
-                cube_pos = env.env.data.xpos[cube_body_id].copy()
-                env.env.viewer.add_marker(
-                    pos=cube_pos,
-                    size=np.array([0.012, 0.012, 0.012]),
-                    rgba=np.array([1.0, 0.2, 0.2, 0.9]),
-                    type=mujoco.mjtGeom.mjGEOM_SPHERE,
-                )
 
             # Scripted pickup/drop: attach cube to hand, then release above belt
             if cube_joint_id >= 0 and hand_body_id >= 0 and qpos_adr >= 0:

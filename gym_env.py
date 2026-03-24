@@ -39,7 +39,7 @@ class ConveyorTaskConfig:
     render_every_n_episodes: int = 0
     gui_sleep_s: float = 0.02
     belt_collision_penalty: float = 0.3  # Reduziert
-    belt_end_reward: float = 2.0  # Reduziert (zu spät für gutes Lernensignal)
+    belt_end_reward: float = 6.0  # Stärkerer Fokus auf echten Abschluss
     belt_end_margin: float = 0.03
     max_reach_dist: float = 0.6
     auto_max_reach: bool = True
@@ -49,9 +49,9 @@ class ConveyorTaskConfig:
     drop_below_belt_margin: float = 0.03
     step_penalty: float = 0.000
     hold_over_belt_penalty: float = 0.02  # Reduziert
-    release_success_reward: float = 1.0  # Reduziert
+    release_success_reward: float = 0.5  # Geringerer Reward für Zwischenziel
     terminate_on_success: bool = True
-    to_belt_scale: float = 3.0
+    to_belt_scale: float = 1.5
     hand_to_belt_scale: float = 0.5
     on_belt_reward: float = 5.0
     on_belt_z_below_margin: float = 0.04
@@ -68,15 +68,15 @@ class ConveyorTaskConfig:
     ground_collision_penalty: float = 0.5
     action_scale: float = 0.7
     milestone_grasp_reward: float = 2.0
-    milestone_on_belt_reward: float = 1.0  # Reduziert
-    milestone_end_reward: float = 2.0  # Reduziert
+    milestone_on_belt_reward: float = 0.5  # Geringerer Reward für Zwischenziel
+    milestone_end_reward: float = 4.0  # Mehr Gewicht auf finalem Erfolg
     grasp_sustain_reward: float = 0.0  # Entfernt (verursacht kontinuierliche Streuung)
     push_without_grasp_penalty: float = 0.02  # Reduziert
-    lift_up_reward_scale: float = 6.0
+    lift_up_reward_scale: float = 3.0
     lift_down_penalty_scale: float = 2.0
     lift_min_height_margin: float = 0.01
     lift_low_height_penalty: float = 0.02
-    belt_progress_reward_scale: float = 20.0
+    belt_progress_reward_scale: float = 8.0
 
 
 class PandaConveyorGym(gym.Env):
@@ -334,8 +334,11 @@ class PandaConveyorGym(gym.Env):
             dist = 0.0
         cube_on_belt_now = self._cube_on_belt()
 
+        just_released_onto_belt = False
+
         # Enter TRACK_ON_BELT once cube was released and is resting on the belt.
         if not self.in_track_on_belt and self.prev_is_grasped and not self.is_grasped and cube_on_belt_now:
+            just_released_onto_belt = True
             self.in_track_on_belt = True
 
         # In TRACK_ON_BELT grasping is forbidden: force release if needed.
@@ -437,6 +440,7 @@ class PandaConveyorGym(gym.Env):
                         self.env.set_magnetic_grasp(False)
                     self.is_grasped = False
                     if self._cube_on_belt():
+                        just_released_onto_belt = True
                         self.in_track_on_belt = True
                     if self.env.gui:
                         print(f"[grasp] release triggered ({release_reason})")
@@ -513,7 +517,7 @@ class PandaConveyorGym(gym.Env):
             reward_parts["milestone"] += self.config.milestone_grasp_reward
             self.milestone_grasped = True
         # Removed grasp_sustain_reward - causes signal noise
-        if not self.in_track_on_belt and self._cube_on_belt() and not self.milestone_on_belt:
+        if (just_released_onto_belt or cube_on_belt_now) and not self.milestone_on_belt:
             reward += self.config.milestone_on_belt_reward
             reward_parts["milestone"] += self.config.milestone_on_belt_reward
             self.milestone_on_belt = True

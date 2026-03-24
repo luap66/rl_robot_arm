@@ -10,6 +10,45 @@ from pathlib import Path
 from gym_env import PandaConveyorGym, ConveyorTaskConfig
 
 
+def linear_schedule(initial_value: float, final_value: float):
+    def _schedule(progress_remaining: float) -> float:
+        return final_value + (initial_value - final_value) * progress_remaining
+
+    return _schedule
+
+
+class EntCoefScheduleCallback:
+    def __init__(self, initial_value: float, final_value: float):
+        from stable_baselines3.common.callbacks import BaseCallback
+
+        self.initial_value = float(initial_value)
+        self.final_value = float(final_value)
+
+        class _CallbackImpl(BaseCallback):
+            def __init__(self, outer):
+                super().__init__()
+                self.outer = outer
+
+            def _scheduled_value(self) -> float:
+                progress_remaining = float(self.model._current_progress_remaining)
+                return self.outer.final_value + (
+                    self.outer.initial_value - self.outer.final_value
+                ) * progress_remaining
+
+            def _on_training_start(self) -> None:
+                self.model.ent_coef = self._scheduled_value()
+
+            def _on_rollout_end(self) -> None:
+                value = self._scheduled_value()
+                self.model.ent_coef = value
+                self.logger.record("train/ent_coef", value)
+
+            def _on_step(self) -> bool:
+                return True
+
+        self.callback = _CallbackImpl(self)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--timesteps", type=int, default=200_000)
@@ -17,7 +56,8 @@ def main():
     parser.add_argument("--control-conveyor", action="store_true")
     parser.add_argument("--render-every", type=int, default=0)
     parser.add_argument("--gui-sleep", type=float, default=0.02)
-    parser.add_argument("--ent-coef", type=float, default=0.02)
+    parser.add_argument("--ent-coef", type=float, default=0.03)
+    parser.add_argument("--ent-coef-final", type=float, default=0.005)
     parser.add_argument("--log-dir", type=str, default="logs")
     parser.add_argument("--run-name", type=str, default="")
     args = parser.parse_args()
@@ -41,8 +81,8 @@ def main():
     config = ConveyorTaskConfig(
         action_mode="velocity",
         control_conveyor=args.control_conveyor,
-        conveyor_speed=5.0,
-        randomize_cube=True,
+        conveyor_speed=3.0,
+        randomize_cube=False,
         max_steps=500,
         render_every_n_episodes=args.render_every,
         gui_sleep_s=args.gui_sleep,
@@ -66,11 +106,12 @@ def main():
         device="cpu",
         tensorboard_log=str(log_root) if has_tensorboard else None,
     )
+    ent_coef_callback = EntCoefScheduleCallback(args.ent_coef, args.ent_coef_final).callback
     if has_tensorboard:
-        model.learn(total_timesteps=args.timesteps, tb_log_name=run_name)
+        model.learn(total_timesteps=args.timesteps, tb_log_name=run_name, callback=ent_coef_callback)
     else:
         print("TensorBoard package not installed; continuing without TensorBoard logging.")
-        model.learn(total_timesteps=args.timesteps)
+        model.learn(total_timesteps=args.timesteps, callback=ent_coef_callback)
     model.save(str(run_dir / "ppo_panda_conveyor"))
     print(f"Run directory: {run_dir}")
     if has_tensorboard:
