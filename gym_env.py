@@ -48,6 +48,7 @@ class ConveyorTaskConfig:
     min_steps_before_terminate: int = 100
     drop_below_belt_margin: float = 0.03
     step_penalty: float = 0.000
+    action_penalty: float = 0.0
     hold_over_belt_penalty: float = 0.02  # Reduziert
     release_success_reward: float = 0.5  # Geringerer Reward für Zwischenziel
     terminate_on_success: bool = True
@@ -393,7 +394,13 @@ class PandaConveyorGym(gym.Env):
             "release_success": 0.0,
             "release_cmd": 0.0,
             "milestone": 0.0,
+            "action_penalty": 0.0,
         }
+        # Action-Penalty: bestraft große Aktionen, zwingt Policy zu kleinen Std
+        action_pen = -self.config.action_penalty * float(np.mean(np.abs(arm_action)))
+        reward += action_pen
+        reward_parts["action_penalty"] = action_pen
+
         if self.in_track_on_belt:
             if self.cube_body_id >= 0:
                 cube_pos = self.env.data.xpos[self.cube_body_id]
@@ -415,8 +422,9 @@ class PandaConveyorGym(gym.Env):
         else:
             # Stop reach penalty once cube is already on belt.
             if not self.is_grasped and not cube_on_belt_now:
-                reward -= dist
-                reward_parts["reach"] -= dist
+                reach_penalty = min(dist, 0.5)
+                reward -= reach_penalty
+                reward_parts["reach"] -= reach_penalty
         # Pseudo-grasp: weld when close, release above belt
         # Magnetic grasp logic (latched in env_conveyor)
         if not self.in_track_on_belt and self.cube_body_id >= 0 and self.hand_body_id >= 0:

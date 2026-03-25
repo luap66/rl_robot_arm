@@ -9,6 +9,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
+import numpy as np
+
 from gym_env import PandaConveyorGym, ConveyorTaskConfig
 
 
@@ -93,8 +95,8 @@ def main():
     parser.add_argument("--control-conveyor", action="store_true")
     parser.add_argument("--render-every", type=int, default=0)
     parser.add_argument("--gui-sleep", type=float, default=0.02)
-    parser.add_argument("--ent-coef", type=float, default=0.03)
-    parser.add_argument("--ent-coef-final", type=float, default=0.005)
+    parser.add_argument("--ent-coef", type=float, default=0.01)
+    parser.add_argument("--ent-coef-final", type=float, default=0.003)
     parser.add_argument("--log-dir", type=str, default="logs")
     parser.add_argument("--run-name", type=str, default="")
     args = parser.parse_args()
@@ -102,7 +104,7 @@ def main():
     try:
         from stable_baselines3 import PPO
         from stable_baselines3.common.monitor import Monitor
-        from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
+        from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor, VecNormalize
     except Exception as exc:  # pragma: no cover - optional dependency
         raise ImportError("stable-baselines3 is required to run train_sb3.py") from exc
     try:
@@ -123,7 +125,7 @@ def main():
         action_mode="velocity",
         control_conveyor=args.control_conveyor,
         conveyor_speed=3.0,
-        randomize_cube=False,
+        randomize_cube=True,
         max_steps=500,
         render_every_n_episodes=args.render_every,
         gui_sleep_s=args.gui_sleep,
@@ -147,6 +149,8 @@ def main():
         env_fns = [make_env(i) for i in range(args.num_envs)]
         env = SubprocVecEnv(env_fns)
         env = VecMonitor(env, filename=str(run_dir / "vec_monitor.csv"), info_keywords=info_keywords)
+
+    env = VecNormalize(env, norm_obs=True, norm_reward=True, clip_obs=10.0)
 
     print(f"Using {args.num_envs} parallel env(s)")
 
@@ -177,11 +181,13 @@ def main():
                 if self._rollout % render_every != 0:
                     return
                 env = PandaConveyorGym(gui=True, dt=0.01, config=render_config)
+                vec_norm = self.model.get_vec_normalize_env()
                 try:
                     obs, _ = env.reset()
                     done = False
                     while not done:
-                        action, _ = self.model.predict(obs, deterministic=True)
+                        obs_input = vec_norm.normalize_obs(obs[np.newaxis])[0] if vec_norm is not None else obs
+                        action, _ = self.model.predict(obs_input, deterministic=False)
                         obs, _, terminated, truncated, _ = env.step(action)
                         done = terminated or truncated
                         time.sleep(args.gui_sleep)
@@ -198,10 +204,16 @@ def main():
         "MlpPolicy",
         env,
         verbose=1,
-        n_steps=1024,
+        n_steps=512,
         batch_size=256,
-        learning_rate=3e-4,
+        n_epochs=5,
+        clip_range=0.15,
+        vf_coef=0.5,
+        max_grad_norm=0.5,
+        learning_rate=linear_schedule(3e-4, 3e-5),
         ent_coef=args.ent_coef,
+        use_sde=True,
+        sde_sample_freq=4,
         device="cpu",
         tensorboard_log=str(log_root) if has_tensorboard else None,
     )
@@ -218,6 +230,7 @@ def main():
         print("TensorBoard package not installed; continuing without TensorBoard logging.")
         model.learn(total_timesteps=args.timesteps, callback=callback)
     model.save(str(run_dir / "ppo_panda_conveyor"))
+    env.save(str(run_dir / "vecnormalize.pkl"))
     print(f"Run directory: {run_dir}")
     if has_tensorboard:
         print(f"TensorBoard: tensorboard --logdir {log_root}")

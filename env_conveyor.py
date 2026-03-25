@@ -244,6 +244,10 @@ class PandaConveyorEnv:
             self.magnetic_release_until = self.data.time + self.magnetic_release_cooldown
         elif not active:
             self.magnetic_release_until = self.data.time
+        # Beim Loslassen Würfel-Rotation auf aufrecht zurücksetzen
+        if not active and self.cube_qpos_adr >= 0:
+            self.data.qpos[self.cube_qpos_adr+3:self.cube_qpos_adr+7] = [1.0, 0.0, 0.0, 0.0]
+            self.data.qvel[self.cube_qvel_adr:self.cube_qvel_adr+6] = 0.0
 
     def _hand_touches_cube(self) -> bool:
         if self.cube_body_id < 0 or self.hand_body_id < 0 or self.hand_subtree_mask is None:
