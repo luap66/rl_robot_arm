@@ -1,0 +1,31 @@
+<?xml version="1.0" ?>
+<mujoco model="conveyor">
+    <compiler angle="radian" autolimits="true"/>
+
+    <worldbody>
+        <body name="conveyor">
+            <!-- Structural frame (no self-collision with belt surface) -->
+            <geom name="belt_frame" type="box" pos="0 0 0.09"
+                  size="1.0 0.25 0.09" rgba="0.25 0.25 0.25 1"
+                  contype="0" conaffinity="0"/>
+
+            <!-- Moving belt surface: slide joint driven by actuator.
+                 Infinite-belt trick (MuJoCo issue #547):
+                 gainprm == damping  →  terminal velocity = ctrl (m/s).
+                 qpos is reset to 0 every step so the surface stays in place visually. -->
+            <body name="belt_surface" pos="0 0 0.185">
+                <joint name="belt_slide" type="slide" axis="1 0 0" damping="50"/>
+                <geom name="belt_surface" type="box"
+                      size="1.0 0.25 0.005"
+                      rgba="0.1 0.1 0.1 1"
+                      friction="1.5 0.01 0.01"
+                      condim="4"/>
+            </body>
+        </body>
+    </worldbody>
+
+    <actuator>
+        <general name="belt_drive" joint="belt_slide" gainprm="50"
+                 ctrlrange="-2 2"/>
+    </actuator>
+</mujoco>
