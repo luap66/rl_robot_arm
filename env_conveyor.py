@@ -51,7 +51,7 @@ class PandaConveyorEnv:
         self._setup()
 
     def _setup(self):
-        scene_file = Path(__file__).parent / "conveyor_scene.xml"
+        scene_file = Path(__file__).parent / "assets/conveyor_belt/models/conveyor_scene.xml"
         if not scene_file.exists():
             raise FileNotFoundError(f"Scene file not found: {scene_file}")
 
